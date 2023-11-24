@@ -6,5 +6,5 @@ functions:
   cc-proj-3-function:
     lang: python3-http
     handler: ./cc-proj-3-function
-    image: adixit34/cc-proj-3-function:0.1.4
+    image: adixit34/cc-proj-3-function:0.1.5
 

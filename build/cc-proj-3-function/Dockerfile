@@ -15,7 +15,9 @@ RUN apk update && apk add --no-cache \
     libstdc++ \
     libxext \
     libxrender \
-    libgomp
+    libgomp \
+    py3-rados
+
 
 RUN python -m pip install --upgrade pip
 
