@@ -1,0 +1,10 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+functions:
+  cc-proj-3-function:
+    lang: python3-http
+    handler: ./cc-proj-3-function
+    image: adixit34/cc-proj-3-function:0.1.4
+
