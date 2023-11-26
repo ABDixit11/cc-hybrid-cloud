@@ -1,13 +1,19 @@
 from boto3 import client as boto3_client
 import os
 
-input_bucket = "cc-ss-input-2"
-output_bucket = "cc-ss-output-2"
+input_bucket = "cc-ss-input-3"
+output_bucket = "cc-ss-output-3"
 test_cases = "test_cases/"
+rgw_endpoint = 'YOUR_CEPH_RGW_ENDPOINT_URL'
+access_key = 'DCMF3Y05B3MFMB48SBQ4'
+secret_key = 'wqX7S1GoxtwCoTXS4urCBABJ3WqvN2aQdWVNetTD'
 
 def clear_input_bucket():
 	global input_bucket
-	s3 = boto3_client('s3')
+	s3 = boto3_client.client('s3',
+					  endpoint_url=rgw_endpoint,
+					  aws_access_key_id=access_key,
+					  aws_secret_access_key=secret_key)
 	list_obj = s3.list_objects_v2(Bucket=input_bucket)
 	try:
 		for item in list_obj["Contents"]:
@@ -18,7 +24,10 @@ def clear_input_bucket():
 	
 def clear_output_bucket():
 	global output_bucket
-	s3 = boto3_client('s3')
+	s3 = boto3_client.client('s3',
+							 endpoint_url=rgw_endpoint,
+							 aws_access_key_id=access_key,
+							 aws_secret_access_key=secret_key)
 	list_obj = s3.list_objects_v2(Bucket=output_bucket)
 	try:
 		for item in list_obj["Contents"]:
