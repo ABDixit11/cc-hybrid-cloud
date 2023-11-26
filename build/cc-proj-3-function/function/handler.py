@@ -11,7 +11,6 @@ import boto3
 import logging
 import csv
 from io import StringIO
-import rados
 
 # Configure the logger
 logger = logging.getLogger()
@@ -31,8 +30,8 @@ client_name = 'client.admin'
 conf_file = '/etc/ceph/ceph.conf'
 
 # Connect to the Ceph cluster ***TODO
-cluster = rados.Rados(conffile=conf_file, conf=dict(keyring='/etc/ceph/keyring'))
-cluster.connect()
+# cluster = rados.Rados(conffile=conf_file, conf=dict(keyring='/etc/ceph/keyring'))
+# cluster.connect()
 
 
 # Function to read the 'encoding' file
@@ -69,20 +68,17 @@ def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
         row[key] = str(value)
     return row
 
-# def upload_file_to_s3(video_file_name, information_from_dynamo):
-#     s3 = boto3.client('s3')
-#     bucket_name = 'cc-ss-output-2'
-#     object_name = video_file_name.replace('.mp4', '') + ".csv"
-#     csv_data = StringIO()
-#     fieldnames = ['name', 'major', 'year']
-#     row = convert_ddb_item_to_row(fieldnames, information_from_dynamo)
-#     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
-#     csv_writer.writeheader()
-#     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
-#     s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
+def upload_file_to_s3(video_file_name, information_from_dynamo):
+    rgw_endpoint = 'YOUR_CEPH_RGW_ENDPOINT_URL'  # Replace with your RGW endpoint
+    access_key = 'YOUR_ACCESS_KEY'  # Replace with your Ceph access key
+    secret_key = 'YOUR_SECRET_KEY'  # Replace with your Ceph secret key
 
-def upload_file_to_ceph(video_file_name, information_from_dynamo):
-    pool_name = 'your_ceph_pool_name'
+    # Initialize S3 client
+    s3 = boto3.client('s3',
+                      endpoint_url=rgw_endpoint,
+                      aws_access_key_id=access_key,
+                      aws_secret_access_key=secret_key)
+    bucket_name = 'cc-ss-output-2'
     object_name = video_file_name.replace('.mp4', '') + ".csv"
     csv_data = StringIO()
     fieldnames = ['name', 'major', 'year']
@@ -90,11 +86,22 @@ def upload_file_to_ceph(video_file_name, information_from_dynamo):
     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
     csv_writer.writeheader()
     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
+    s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
 
-    # Write the CSV data to CephFS
-    ioctx = cluster.open_ioctx(pool_name)
-    ioctx.write_full(object_name, csv_data.getvalue())
-    ioctx.close()
+# def upload_file_to_ceph(video_file_name, information_from_dynamo):
+#     pool_name = 'your_ceph_pool_name'
+#     object_name = video_file_name.replace('.mp4', '') + ".csv"
+#     csv_data = StringIO()
+#     fieldnames = ['name', 'major', 'year']
+#     row = convert_ddb_item_to_row(fieldnames, information_from_dynamo)
+#     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
+#     csv_writer.writeheader()
+#     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
+
+#     # Write the CSV data to CephFS
+#     ioctx = cluster.open_ioctx(pool_name)
+#     ioctx.write_full(object_name, csv_data.getvalue())
+#     ioctx.close()
 
 def compare_encoding(array, arrays):
     for i in range(len(arrays)):
@@ -123,11 +130,7 @@ def handle(event, context):
             video_path = "/tmp/" + key
             video_dir = '/'.join(video_path.split('/')[:-1])
             os.makedirs(video_dir, exist_ok=True)
-            with open(video_path, 'wb') as local_file:
-                ioctx = cluster.open_ioctx('your_ceph_pool_name')
-                data = ioctx.read(key)
-                local_file.write(data)
-                ioctx.close()
+            s3.download_file(bucket, key, video_path)
             frame_pattern = f"{frame_dir}%04d.jpg"
             subprocess.call(['ffmpeg', '-i', video_path, frame_pattern])
             frame_files = os.listdir(frame_dir)
@@ -144,7 +147,7 @@ def handle(event, context):
                 logger.info(f"First face detected for {key}! Name of the person identified is: {name_of_person_detected}")
                 info_from_ddb = get_info_from_dynamo(name_of_person_detected)
                 logger.info(info_from_ddb)
-                upload_file_to_ceph(key, info_from_ddb)
+                upload_file_to_s3(key, info_from_ddb)
             else:
                 logger.info(f"No faces detected for: {key}")
             for frame_file in frame_files:
