@@ -4,13 +4,13 @@ import os
 input_bucket = "cc-ss-input-3"
 output_bucket = "cc-ss-output-3"
 test_cases = "test_cases/"
-rgw_endpoint = 'YOUR_CEPH_RGW_ENDPOINT_URL'
+rgw_endpoint = 'http://10.0.2.15:8081'
 access_key = 'DCMF3Y05B3MFMB48SBQ4'
 secret_key = 'wqX7S1GoxtwCoTXS4urCBABJ3WqvN2aQdWVNetTD'
 
 def clear_input_bucket():
 	global input_bucket
-	s3 = boto3_client.client('s3',
+	s3 = boto3_client('s3',
 					  endpoint_url=rgw_endpoint,
 					  aws_access_key_id=access_key,
 					  aws_secret_access_key=secret_key)
@@ -24,7 +24,7 @@ def clear_input_bucket():
 	
 def clear_output_bucket():
 	global output_bucket
-	s3 = boto3_client.client('s3',
+	s3 = boto3_client('s3',
 							 endpoint_url=rgw_endpoint,
 							 aws_access_key_id=access_key,
 							 aws_secret_access_key=secret_key)
@@ -38,7 +38,10 @@ def clear_output_bucket():
 
 def upload_to_input_bucket_s3(path, name):
 	global input_bucket
-	s3 = boto3_client('s3')
+	s3 = boto3_client('s3',
+					  endpoint_url=rgw_endpoint,
+					  aws_access_key_id=access_key,
+					  aws_secret_access_key=secret_key)
 	s3.upload_file(path + name, input_bucket, name)
 	
 	
