@@ -6,25 +6,20 @@ import boto3
 import logging
 import csv
 from io import StringIO
-
 # Configure the logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-aws_access_key_id=""
-aws_secret_access_key=""
+
+aws_access_key='AKIA4BR5QBAMM5BKK5Q5'
+aws_secret_key='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'
+ceph_access_key='fooAccessKey'
+ceph_secret_key='fooSecretKey'
 input_bucket = "cc-ss-input-3"
 output_bucket = "cc-ss-output-3"
 s3 = boto3.client('s3')
 file_path = '/home/app/encoding'
 table_name = 'cc-ss-proj2-table'
-# Ceph connection parameters ***TODO
-cluster_name = 'ceph'
-client_name = 'client.admin'
-conf_file = '/etc/ceph/ceph.conf'
-
-# Connect to the Ceph cluster ***TODO
-# cluster = rados.Rados(conffile=conf_file, conf=dict(keyring='/etc/ceph/keyring'))
-# cluster.connect()
+rgw_endpoint = 'http://10.0.2.15:7480'
 
 
 # Function to read the 'encoding' file
@@ -35,8 +30,8 @@ def open_encoding(filename):
 
 def get_info_from_dynamo(name):
     dynamodb = boto3.client('dynamodb',
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
+        aws_access_key_id=aws_access_key,
+        aws_secret_access_key=aws_secret_key,
         region_name='us-east-1')
     try:
         response = dynamodb.get_item(
@@ -62,15 +57,14 @@ def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
     return row
 
 def upload_file_to_s3(video_file_name, information_from_dynamo):
-    rgw_endpoint = 'YOUR_CEPH_RGW_ENDPOINT_URL'
-    access_key = 'DCMF3Y05B3MFMB48SBQ4'
-    secret_key = 'wqX7S1GoxtwCoTXS4urCBABJ3WqvN2aQdWVNetTD'
+    global  rgw_endpoint,ceph_secret_key,ceph_secret_key
+
 
     # Initialize S3 client
     s3 = boto3.client('s3',
                       endpoint_url=rgw_endpoint,
-                      aws_access_key_id=access_key,
-                      aws_secret_access_key=secret_key)
+                      aws_access_key_id=ceph_access_key,
+                      aws_secret_access_key=ceph_secret_key)
     bucket_name = 'cc-ss-output-3'
     object_name = video_file_name.replace('.mp4', '') + ".csv"
     csv_data = StringIO()
@@ -81,20 +75,6 @@ def upload_file_to_s3(video_file_name, information_from_dynamo):
     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
     s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
 
-# def upload_file_to_ceph(video_file_name, information_from_dynamo):
-#     pool_name = 'your_ceph_pool_name'
-#     object_name = video_file_name.replace('.mp4', '') + ".csv"
-#     csv_data = StringIO()
-#     fieldnames = ['name', 'major', 'year']
-#     row = convert_ddb_item_to_row(fieldnames, information_from_dynamo)
-#     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
-#     csv_writer.writeheader()
-#     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
-
-#     # Write the CSV data to CephFS
-#     ioctx = cluster.open_ioctx(pool_name)
-#     ioctx.write_full(object_name, csv_data.getvalue())
-#     ioctx.close()
 
 def compare_encoding(array, arrays):
     for i in range(len(arrays)):

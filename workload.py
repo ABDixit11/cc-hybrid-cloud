@@ -4,12 +4,13 @@ import os
 input_bucket = "cc-ss-input-3"
 output_bucket = "cc-ss-output-3"
 test_cases = "test_cases/"
-rgw_endpoint = 'http://10.0.2.15:8081'
-access_key = 'DCMF3Y05B3MFMB48SBQ4'
-secret_key = 'wqX7S1GoxtwCoTXS4urCBABJ3WqvN2aQdWVNetTD'
+rgw_endpoint = 'http://10.0.2.15:7480'
+access_key = 'fooAccessKey'
+secret_key = 'fooSecretKey'
 
 def clear_input_bucket():
 	global input_bucket
+
 	s3 = boto3_client('s3',
 					  endpoint_url=rgw_endpoint,
 					  aws_access_key_id=access_key,
