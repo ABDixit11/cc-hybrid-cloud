@@ -9,12 +9,12 @@ from io import StringIO
 # Configure the logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-access_key = 'QDR2KC9V31Q4EXPH986O'
-aws_access_key='AKIA4BR5QBAMM5BKK5Q5'
-aws_secret_key='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'
-secret_key = 'KrPGCRmVDCmYtYOVDDHuZiHqYCqbmJ9qk4wQLrx2'
-ceph_access_key='QDR2KC9V31Q4EXPH986O'
-ceph_secret_key='KrPGCRmVDCmYtYOVDDHuZiHqYCqbmJ9qk4wQLrx2'
+
+aws_access_key='REDACTED FOR SUBMISSION'
+aws_secret_key='REDACTED FOR SUBMISSION'
+
+ceph_access_key='fooAccessKey'
+ceph_secret_key='fooSecretKey'
 input_bucket = "cc-ss-input-3"
 output_bucket = "cc-ss-output-3"
 s3 = boto3.client('s3')
@@ -75,21 +75,6 @@ def upload_file_to_s3(video_file_name, information_from_dynamo):
     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
     s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
 
-# def upload_file_to_ceph(video_file_name, information_from_dynamo):
-#     pool_name = 'your_ceph_pool_name'
-#     object_name = video_file_name.replace('.mp4', '') + ".csv"
-#     csv_data = StringIO()
-#     fieldnames = ['name', 'major', 'year']
-#     row = convert_ddb_item_to_row(fieldnames, information_from_dynamo)
-#     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
-#     csv_writer.writeheader()
-#     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
-
-#     # Write the CSV data to CephFS
-#     ioctx = cluster.open_ioctx(pool_name)
-#     ioctx.write_full(object_name, csv_data.getvalue())
-#     ioctx.close()
-
 def compare_encoding(array, arrays):
     for i in range(len(arrays)):
         result = face_recognition.compare_faces(array, arrays[i])
@@ -145,4 +130,7 @@ def handle(event, context):
             'body': f'Processing complete. File Uploaded to S3 for video: {key}'
         }
     except Exception as e:
-        raise e
+        return {
+            'statusCode': 500,
+            'body': f'Error : {e}'
+        }

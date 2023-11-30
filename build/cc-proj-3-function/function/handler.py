@@ -12,15 +12,15 @@ logger.setLevel(logging.DEBUG)
 
 aws_access_key='AKIA4BR5QBAMM5BKK5Q5'
 aws_secret_key='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'
+
 ceph_access_key='fooAccessKey'
 ceph_secret_key='fooSecretKey'
+
 input_bucket = "cc-ss-input-3"
 output_bucket = "cc-ss-output-3"
 s3 = boto3.client('s3')
 file_path = '/home/app/encoding'
 table_name = 'cc-ss-proj2-table'
-rgw_endpoint = 'http://10.0.2.15:7480'
-
 
 # Function to read the 'encoding' file
 def open_encoding(filename):
@@ -57,14 +57,15 @@ def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
     return row
 
 def upload_file_to_s3(video_file_name, information_from_dynamo):
-    global  rgw_endpoint,ceph_secret_key,ceph_secret_key
-
+    rgw_endpoint = 'http://10.0.2.15:7480'
+    access_key = ceph_access_key
+    secret_key = ceph_secret_key
 
     # Initialize S3 client
     s3 = boto3.client('s3',
                       endpoint_url=rgw_endpoint,
-                      aws_access_key_id=ceph_access_key,
-                      aws_secret_access_key=ceph_secret_key)
+                      aws_access_key_id=access_key,
+                      aws_secret_access_key=secret_key)
     bucket_name = 'cc-ss-output-3'
     object_name = video_file_name.replace('.mp4', '') + ".csv"
     csv_data = StringIO()
@@ -74,7 +75,6 @@ def upload_file_to_s3(video_file_name, information_from_dynamo):
     csv_writer.writeheader()
     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
     s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
-
 
 def compare_encoding(array, arrays):
     for i in range(len(arrays)):

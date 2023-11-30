@@ -4,7 +4,7 @@ provider:
   gateway: http://127.0.0.1:8080
 functions:
   cc-proj-3-function:
-    lang: python3-http
+    lang: python3
     handler: ./cc-proj-3-function
-    image: adixit34/cc-proj-3-function:0.1.5
+    image: localhost:5001/cc-proj-3-function:latest
 
