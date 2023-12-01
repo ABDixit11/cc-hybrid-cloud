@@ -6,21 +6,28 @@ import boto3
 import logging
 import csv
 from io import StringIO
+
 # Configure the logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-aws_access_key='AKIA4BR5QBAMM5BKK5Q5'
-aws_secret_key='FMUb3hqNW+NHcGB0bLKsm7p13cZR8GUBJatr1I9O'
+aws_access_key = 'REDACTED FOR SUBMISSION'
+aws_secret_key = 'REDACTED FOR SUBMISSION'
 
-ceph_access_key='fooAccessKey'
-ceph_secret_key='fooSecretKey'
-
+ceph_access_key = 'fooAccessKey'
+ceph_secret_key = 'fooSecretKey'
 input_bucket = "cc-ss-input-3"
 output_bucket = "cc-ss-output-3"
-s3 = boto3.client('s3')
-file_path = '/home/app/encoding'
+rgw_endpoint = 'http://10.0.2.15:7480'
+
+# Initialize S3 client
+ceph_s3 = boto3.client('s3',
+                       endpoint_url=rgw_endpoint,
+                       aws_access_key_id=ceph_access_key,
+                       aws_secret_access_key=ceph_secret_key)
+file_path = '/home/app/function/encoding'
 table_name = 'cc-ss-proj2-table'
+
 
 # Function to read the 'encoding' file
 def open_encoding(filename):
@@ -28,11 +35,12 @@ def open_encoding(filename):
         data = pickle.load(file)
     return data
 
+
 def get_info_from_dynamo(name):
     dynamodb = boto3.client('dynamodb',
-        aws_access_key_id=aws_access_key,
-        aws_secret_access_key=aws_secret_key,
-        region_name='us-east-1')
+                            aws_access_key_id=aws_access_key,
+                            aws_secret_access_key=aws_secret_key,
+                            region_name='us-east-1')
     try:
         response = dynamodb.get_item(
             TableName=table_name,
@@ -48,6 +56,7 @@ def get_info_from_dynamo(name):
     except Exception as e:
         return str(e)
 
+
 def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
     row = {}
     for key in fieldnames:
@@ -56,16 +65,8 @@ def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
         row[key] = str(value)
     return row
 
-def upload_file_to_s3(video_file_name, information_from_dynamo):
-    rgw_endpoint = 'http://10.0.2.15:7480'
-    access_key = ceph_access_key
-    secret_key = ceph_secret_key
 
-    # Initialize S3 client
-    s3 = boto3.client('s3',
-                      endpoint_url=rgw_endpoint,
-                      aws_access_key_id=access_key,
-                      aws_secret_access_key=secret_key)
+def upload_file_to_s3(video_file_name, information_from_dynamo):
     bucket_name = 'cc-ss-output-3'
     object_name = video_file_name.replace('.mp4', '') + ".csv"
     csv_data = StringIO()
@@ -74,7 +75,8 @@ def upload_file_to_s3(video_file_name, information_from_dynamo):
     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
     csv_writer.writeheader()
     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
-    s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
+    ceph_s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
+
 
 def compare_encoding(array, arrays):
     for i in range(len(arrays)):
@@ -83,10 +85,10 @@ def compare_encoding(array, arrays):
             return i
     return -1
 
-def handle(event, context):
+
+def handle(event):
     try:
         logger.info(event)
-        logger.info(context)
         logger.info("Lambda function executed.")
         encoding_dict = open_encoding(file_path)
         encoding_names = encoding_dict['name']
@@ -103,7 +105,7 @@ def handle(event, context):
             video_path = "/tmp/" + key
             video_dir = '/'.join(video_path.split('/')[:-1])
             os.makedirs(video_dir, exist_ok=True)
-            s3.download_file(bucket, key, video_path)
+            ceph_s3.download_file(bucket, key, video_path)
             frame_pattern = f"{frame_dir}%04d.jpg"
             subprocess.call(['ffmpeg', '-i', video_path, frame_pattern])
             frame_files = os.listdir(frame_dir)
@@ -117,7 +119,8 @@ def handle(event, context):
                     break
             if result != -1:
                 name_of_person_detected = encoding_names[result]
-                logger.info(f"First face detected for {key}! Name of the person identified is: {name_of_person_detected}")
+                logger.info(
+                    f"First face detected for {key}! Name of the person identified is: {name_of_person_detected}")
                 info_from_ddb = get_info_from_dynamo(name_of_person_detected)
                 logger.info(info_from_ddb)
                 upload_file_to_s3(key, info_from_ddb)
@@ -131,4 +134,7 @@ def handle(event, context):
             'body': f'Processing complete. File Uploaded to S3 for video: {key}'
         }
     except Exception as e:
-        raise e
+        return {
+            'statusCode': 500,
+            'body': f'Error : {e}'
+        }
