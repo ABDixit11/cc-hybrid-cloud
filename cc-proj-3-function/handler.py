@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOGLEVEL", "INFO"))
 logger.setLevel(logging.INFO)
 
-aws_access_key = 'AKIA4BR5QBAMGMMJ7SGV'
-aws_secret_key = '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'
+aws_access_key = '#'
+aws_secret_key = '#'
 
 ceph_access_key = 'fooAccessKey'
 ceph_secret_key = 'fooSecretKey'
