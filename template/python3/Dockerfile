@@ -25,7 +25,8 @@ RUN apk update && apk add --no-cache \
     libstdc++ \
     libxext \
     libxrender \
-    libgomp
+    libgomp \
+    ffmpeg
 
 
 RUN python -m pip install --upgrade pip

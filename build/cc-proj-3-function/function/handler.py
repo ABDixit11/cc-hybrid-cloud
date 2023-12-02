@@ -5,14 +5,17 @@ import subprocess
 import boto3
 import logging
 import csv
+import sys
+import json
 from io import StringIO
 
 # Configure the logger
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.setLevel(os.environ.get("LOGLEVEL", "INFO"))
+logger.setLevel(logging.INFO)
 
-aws_access_key = 'REDACTED FOR SUBMISSION'
-aws_secret_key = 'REDACTED FOR SUBMISSION'
+aws_access_key = 'AKIA4BR5QBAMM5BKK5Q5'
+aws_secret_key = 'FMUb3hqNW+NHcGB0bLKsm7p13cZR8GUBJatr1I90'
 
 ceph_access_key = 'fooAccessKey'
 ceph_secret_key = 'fooSecretKey'
@@ -21,12 +24,14 @@ output_bucket = "cc-ss-output-3"
 rgw_endpoint = 'http://10.0.2.15:7480'
 
 # Initialize S3 client
+
+file_path = '/home/app/function/encoding'
+table_name = 'cc-ss-proj2-table'
+
 ceph_s3 = boto3.client('s3',
                        endpoint_url=rgw_endpoint,
                        aws_access_key_id=ceph_access_key,
                        aws_secret_access_key=ceph_secret_key)
-file_path = '/home/app/function/encoding'
-table_name = 'cc-ss-proj2-table'
 
 
 # Function to read the 'encoding' file
@@ -67,6 +72,7 @@ def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
 
 
 def upload_file_to_s3(video_file_name, information_from_dynamo):
+    global  ceph_s3
     bucket_name = 'cc-ss-output-3'
     object_name = video_file_name.replace('.mp4', '') + ".csv"
     csv_data = StringIO()
@@ -75,6 +81,7 @@ def upload_file_to_s3(video_file_name, information_from_dynamo):
     csv_writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
     csv_writer.writeheader()
     csv_writer.writerow({'name': row['name'], 'major': row['major'], 'year': row['year']})
+
     ceph_s3.put_object(Bucket=bucket_name, Key=object_name, Body=csv_data.getvalue())
 
 
@@ -88,21 +95,22 @@ def compare_encoding(array, arrays):
 
 def handle(event):
     try:
-        logger.info(event)
-        logger.info("Lambda function executed.")
+        s3_event=event
+        if not isinstance(event,dict):
+            s3_event= json.loads(event)
+        global ceph_s3
         encoding_dict = open_encoding(file_path)
         encoding_names = encoding_dict['name']
-        logger.info(encoding_names)
         encoding_values = encoding_dict['encoding']
         key = "placeholder"
-        for record in event['Records']:
+        for record in s3_event['Records']:
+            print("hello")
+            print(record)
             bucket = record['s3']['bucket']['name']
             key = record['s3']['object']['key']
-            logger.info(bucket)
-            logger.info(key)
-            frame_dir = "/tmp/frames/"
+            frame_dir = "/home/app/function/tmp/frames/"
             os.makedirs(frame_dir, exist_ok=True)
-            video_path = "/tmp/" + key
+            video_path = "/home/app/function/tmp/" + key
             video_dir = '/'.join(video_path.split('/')[:-1])
             os.makedirs(video_dir, exist_ok=True)
             ceph_s3.download_file(bucket, key, video_path)
@@ -134,7 +142,4 @@ def handle(event):
             'body': f'Processing complete. File Uploaded to S3 for video: {key}'
         }
     except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': f'Error : {e}'
-        }
+        raise e

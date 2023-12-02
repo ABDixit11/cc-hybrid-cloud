@@ -1,6 +1,16 @@
 ARG PYTHON_VERSION=3.8
-FROM --platform=${TARGETPLATFORM:-linux/amd64} ghcr.io/openfaas/of-watchdog:0.9.10 as watchdog
-FROM --platform=${TARGETPLATFORM:-linux/amd64} python:${PYTHON_VERSION}-alpine as build
+FROM --platform=${TARGETPLATFORM:-linux/amd64} ghcr.io/openfaas/classic-watchdog:0.2.3 as watchdog
+FROM --platform=${TARGETPLATFORM:-linux/amd64} python:${PYTHON_VERSION}-alpine
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+
+
+COPY --from=watchdog /fwatchdog /usr/bin/fwatchdog
+RUN chmod +x /usr/bin/fwatchdog
+RUN apk --no-cache add ca-certificates ${ADDITIONAL_PACKAGE}
+
 
 RUN apk update && apk add --no-cache \
     build-base \
@@ -15,63 +25,51 @@ RUN apk update && apk add --no-cache \
     libstdc++ \
     libxext \
     libxrender \
-    libgomp 
+    libgomp
+
 
 RUN python -m pip install --upgrade pip
-
-COPY --from=watchdog /fwatchdog /usr/bin/fwatchdog
-RUN chmod +x /usr/bin/fwatchdog
-
-ARG ADDITIONAL_PACKAGE
-# Alternatively use ADD https:// (which will not be cached by Docker builder)
-
-RUN apk --no-cache add ${ADDITIONAL_PACKAGE}
-
 # Add non root user
 RUN addgroup -S app && adduser app -S -G app
-RUN chown app /home/app
-
-USER app
-
-ENV PATH=$PATH:/home/app/.local/bin
 
 WORKDIR /home/app/
 
-COPY --chown=app:app index.py           .
-COPY --chown=app:app requirements.txt   .
-USER root
-RUN pip install  -r requirements.txt
+COPY index.py           .
+COPY requirements.txt   .
 
-# Build the function directory and install any user-specified components
+RUN chown -R app /home/app && \
+  mkdir -p /home/app/python && chown -R app /home/app
 USER app
+ENV PATH=$PATH:/home/app/.local/bin:/home/app/python/bin/
+ENV PYTHONPATH=$PYTHONPATH:/home/app/python
+
+RUN pip install -r requirements.txt --target=/home/app/python
 
 RUN mkdir -p function
 RUN touch ./function/__init__.py
+
 WORKDIR /home/app/function/
+COPY function/requirements.txt	.
 COPY --chown=app:app function/requirements.txt	.
-COPY function/encoding .
-RUN pip install  --user -r requirements.txt
+COPY --chown=app:app function/encoding .
+COPY --chown=app:app function/handler.py .
+RUN pip install -r requirements.txt --target=/home/app/python
 
-# install function code
-USER root
-COPY --chown=app:app function/   .
-
-FROM build as test
-ARG TEST_COMMAND=tox
-ARG TEST_ENABLED=true
-RUN [ "$TEST_ENABLED" = "false" ] && echo "skipping tests" || eval "$TEST_COMMAND"
-
-FROM build as ship
 WORKDIR /home/app/
 
-# configure WSGI server and healthcheck
+USER root
+
+COPY function           function
+
+# Allow any user-id for OpenShift users.
+RUN chown -R app:app ./ && \
+  chmod -R 777 /home/app/python
+
 USER app
 
-ENV fprocess="python index.py"
-ENV cgi_headers="true"
-ENV mode="http"
-ENV upstream_url="http://127.0.0.1:5001"
+ENV fprocess="python3 index.py"
+EXPOSE 8080
 
-#HEALTHCHECK --interval=5s CMD [ -e /tmp/.lock ] || exit 1
+HEALTHCHECK --interval=3s CMD [ -e /tmp/.lock ] || exit 1
 
 CMD ["fwatchdog"]

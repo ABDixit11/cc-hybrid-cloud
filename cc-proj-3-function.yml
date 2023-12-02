@@ -7,4 +7,5 @@ functions:
     lang: python3
     handler: ./cc-proj-3-function
     image: localhost:5001/cc-proj-3-function:latest
-
+    environment:
+      PYTHONUNBUFFERED: "1"
