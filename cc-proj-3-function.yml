@@ -7,5 +7,6 @@ functions:
     lang: python3
     handler: ./cc-proj-3-function
     image: localhost:5001/cc-proj-3-function:latest
-    environment:
-      PYTHONUNBUFFERED: "1"
+    labels:
+      com.openfaas.scale.min: 2
+      com.openfaas.scale.max: 5

@@ -2,7 +2,6 @@ import time
 import json
 from boto3 import client as boto3_client
 import requests
-
 # Ceph RGW S3 configurations
 ceph_rgw_endpoint  = 'http://10.0.2.15:7480'
 ceph_rgw_access_key_id = 'fooAccessKey'
@@ -20,17 +19,19 @@ def list_objects(bucket_name):
     global s3_client
     list_obj = s3_client.list_objects_v2(Bucket=bucket_name)
     # List objects in the bucket
-    print(list_obj)
     return list_obj.get('Contents', [])
 
 
 def forward_to_openfaas(event_data):
+    try:
     # Convert event data to a string
-    event_data_str = json.dumps(event_data)
-    # Forward the event data as text to the OpenFaaS function
-    headers = {'Content-Type': 'text/plain'}
-    response = requests.post(openfaas_url, data=event_data_str, headers=headers)
-    return response.status_code
+        event_data_str = json.dumps(event_data)
+        # Forward the event data as text to the OpenFaaS function
+        headers = {'Content-Type': 'text/plain'}
+        requests.post(openfaas_url, data=event_data_str, headers=headers)
+        return 200
+    except Exception as e:
+        return 500
 
 
 def monitor_s3_bucket(bucket_name):
@@ -61,8 +62,7 @@ def monitor_s3_bucket(bucket_name):
 
                 # Add the processed object to the list
                 processed_objects.add(obj['Key'])
-
-
+        time.sleep(10)
 
 if __name__ == '__main__':
     processed_objects = set()  # Set to keep track of processed objects
