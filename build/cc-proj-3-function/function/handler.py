@@ -137,6 +137,7 @@ def handle(event):
                 result = compare_encoding(unknown_face_encoding, encoding_values)
                 if result != -1:
                     break
+
             if result != -1:
                 name_of_person_detected = encoding_names[result]
                 logger.info(
