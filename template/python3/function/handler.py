@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOGLEVEL", "INFO"))
 logger.setLevel(logging.INFO)
 
-aws_access_key = 'AKIA4BR5QBAMM5BKK5Q5'
-aws_secret_key = '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'
+aws_access_key = 'AKIA4BR5QBAMGMMJ7SGV1'
+aws_secret_key = 'tn9NjFRyDS9Al2MX0Rzuy2A9asSw3fztHSjy07PD1'
 
 ceph_access_key = 'fooAccessKey'
 ceph_secret_key = 'fooSecretKey'
@@ -53,19 +53,30 @@ def get_info_from_dynamo(name):
                 'name': {'S': name}
             }
         )
+        print(name)
+        logger.info(name)
+        logger.info(response)
+        print(response)
+        if response is None:
+            raise Exception(f"response from ddb is null for key : {name}")
+
         if 'Item' in response:
             item = response['Item']
             return item
         else:
             return "Item not found in DynamoDB."
+
     except Exception as e:
-        return str(e)
+        raise e
 
 
 def convert_ddb_item_to_row(fieldnames, information_from_dynamo):
     row = {}
+    information_from_dynamo2=information_from_dynamo
+    if not isinstance(information_from_dynamo, dict):
+        information_from_dynamo2 = json.loads(information_from_dynamo)
     for key in fieldnames:
-        value = information_from_dynamo[key]['S']
+        value = information_from_dynamo2[key]['S']
         logger.info(type(value))
         row[key] = str(value)
     return row
@@ -95,6 +106,7 @@ def compare_encoding(array, arrays):
 
 def handle(event):
     try:
+        name_of_person_detected=""
         s3_event=event
         if not isinstance(event,dict):
             s3_event= json.loads(event)
@@ -134,12 +146,13 @@ def handle(event):
                 upload_file_to_s3(key, info_from_ddb)
             else:
                 logger.info(f"No faces detected for: {key}")
+
             for frame_file in frame_files:
                 os.remove(os.path.join(frame_dir, frame_file))
             os.remove(video_path)
         return {
             'statusCode': 200,
-            'body': f'Processing complete. File Uploaded to S3 for video: {key}'
+            'body': f'Processing complete. File Uploaded to S3 for video: {key}, face detected was {name_of_person_detected}'
         }
     except Exception as e:
         raise e
