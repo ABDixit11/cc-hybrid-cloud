@@ -6,12 +6,7 @@
     3. Abhijeet Dixit
 
 ## AWS Credentials :
-    1. from console 
-    account number :  user: password: 
-    2. for cli 
-    access_key =  secret_key = 
-    
-    Access key and Secret key will be provided in the comments section of the submission as the credentials were breached in a security leak for the previous submission.
+    Configure your secret key and access key
 
 ## S3 Buckets : 
     1. Input bucket  : cc-ss-input-3
